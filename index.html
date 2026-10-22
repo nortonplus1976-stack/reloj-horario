@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reloj horario · Chile</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#121d30;--muted:#9aabc4;--text:#edf4ff;--accent:#72e0c1;--line:#293952}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,#172844 0%,var(--bg) 58%);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text);display:grid;place-items:center;padding:24px}
+main{width:min(760px,100%)}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}.eyebrow{color:var(--accent);font-size:.78rem;letter-spacing:.15em;text-transform:uppercase;font-weight:700}.pill{border:1px solid var(--line);padding:7px 11px;border-radius:999px;color:var(--muted);font-size:.8rem}
+.panel{background:linear-gradient(145deg,rgba(24,38,60,.96),rgba(14,24,40,.96));border:1px solid var(--line);border-radius:26px;padding:clamp(22px,5vw,42px);box-shadow:0 22px 70px #0005}
+.time{font-size:clamp(3.6rem,12vw,7rem);line-height:1.05;letter-spacing:-.065em;font-weight:750;font-variant-numeric:tabular-nums;margin:18px 0 8px}.date{font-size:clamp(1rem,3vw,1.35rem);color:#c2d0e4}.sub{color:var(--muted);font-size:.92rem;margin-top:12px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:22px}.setting{background:#0c1627a8;border:1px solid var(--line);border-radius:17px;padding:17px}.setting h2{font-size:1rem;margin:0 0 8px}.setting p{font-size:.86rem;color:var(--muted);margin:0 0 13px;line-height:1.45}
+.toggleline{display:flex;justify-content:space-between;align-items:center;gap:12px}.switch{appearance:none;width:46px;height:26px;border-radius:99px;background:#40506a;position:relative;cursor:pointer;flex-shrink:0;transition:.2s}.switch:before{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:white;left:3px;top:3px;transition:.2s}.switch:checked{background:#1b9b7c}.switch:checked:before{left:23px}
+label.field{display:block;color:var(--muted);font-size:.82rem;margin:12px 0 6px}input[type=text]{width:100%;background:#0b1423;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:11px;font:inherit}
+button{border:0;border-radius:12px;background:var(--accent);color:#09221d;font-weight:750;padding:12px 15px;font:inherit;cursor:pointer}button.secondary{background:#24344c;color:var(--text);border:1px solid #354963}button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.status{font-size:.84rem;color:var(--muted);margin-top:16px;line-height:1.5}.status strong{color:var(--accent)}.note{border-left:3px solid #d9b86c;padding:10px 13px;background:#d9b86c12;border-radius:0 10px 10px 0;color:#d8d5c9;font-size:.82rem;line-height:1.5;margin-top:18px}
+footer{text-align:center;color:#71839d;font-size:.78rem;margin-top:18px}
+@media(max-width:540px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.time{letter-spacing:-.055em}}
+</style>
+</head>
+<body>
+<main>
+  <div class="top"><div><div class="eyebrow">Reloj personal</div><div style="color:var(--muted);margin-top:4px">Hora, fecha y recordatorios</div></div><div class="pill">Zona horaria: Chile continental</div></div>
+  <section class="panel" aria-label="Reloj y configuración">
+    <div class="eyebrow">Hora actual</div>
+    <div id="clock" class="time" aria-live="off">--:--:--</div>
+    <div id="date" class="date">Cargando fecha…</div>
+    <div class="sub">El reloj se actualiza automáticamente.</div>
+    <div class="grid">
+      <section class="setting">
+        <div class="toggleline"><h2>🔔 Sonido cada hora</h2><input id="soundToggle" class="switch" type="checkbox" checked aria-label="Activar sonido horario"></div>
+        <p>Emite un tono breve al llegar a la hora en punto, mientras esta página esté abierta.</p>
+        <button id="testSound" class="secondary" type="button">Probar sonido</button>
+      </section>
+      <section class="setting">
+        <div class="toggleline"><h2>🪟 Avisos de Windows</h2><input id="notifyToggle" class="switch" type="checkbox" checked aria-label="Activar notificaciones"></div>
+        <p>Solicita permiso a Chrome y muestra una notificación cada hora en punto.</p>
+        <label class="field" for="message">Mensaje de la notificación</label>
+        <input id="message" type="text" maxlength="180" value="Haz una pausa y revisa tus prioridades." />
+      </section>
+    </div>
+    <div class="actions">
+      <button id="enableBtn" type="button">Activar notificaciones</button>
+      <button id="testNotify" class="secondary" type="button">Enviar aviso de prueba</button>
+    </div>
+    <div id="status" class="status" role="status">Preparado. Pulsa “Activar notificaciones” para conceder permiso en Chrome.</div>
+    <div class="note"><strong>Importante:</strong> deja esta pestaña abierta. Chrome debe tener permiso para enviar notificaciones y Windows no debe estar en modo “No molestar”. Si el equipo suspende o cierra Chrome, los avisos pueden no aparecer.</div>
+  </section>
+  <footer>Diseñado para usarse en Chrome · Hora de Chile continental (America/Santiago)</footer>
+</main>
+<script>
+(() => {
+  const zone = 'America/Santiago';
+  const clock = document.getElementById('clock');
+  const date = document.getElementById('date');
+  const soundToggle = document.getElementById('soundToggle');
+  const notifyToggle = document.getElementById('notifyToggle');
+  const messageInput = document.getElementById('message');
+  const status = document.getElementById('status');
+  let lastHourlyKey = '';
+  let audioCtx = null;
+
+  function nowParts() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: zone, year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'
+    }).formatToParts(new Date());
+    return Object.fromEntries(parts.filter(p => p.type !== 'literal').map(p => [p.type,p.value]));
+  }
+  function updateClock() {
+    const now = new Date();
+    clock.textContent = new Intl.DateTimeFormat('es-CL', {
+      timeZone:zone, hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'
+    }).format(now);
+    date.textContent = new Intl.DateTimeFormat('es-CL', {
+      timeZone:zone, weekday:'long', year:'numeric', month:'long', day:'numeric'
+    }).format(now);
+    const p = nowParts();
+    if (p.minute === '00' && p.second === '00') {
+      const key = `${p.year}-${p.month}-${p.day}-${p.hour}`;
+      if (key !== lastHourlyKey) {
+        lastHourlyKey = key;
+        hourlyAlert(p.hour);
+      }
+    }
+  }
+  function playTone() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) { status.textContent = 'Este navegador no permite generar el sonido.'; return; }
+      audioCtx = audioCtx || new AudioContext();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.22, audioCtx.currentTime + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.55);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.58);
+    } catch(e) {
+      status.textContent = 'No se pudo reproducir el sonido. Pulsa “Probar sonido” y revisa el volumen.';
+    }
+  }
+  function notify(title, body) {
+    if (!('Notification' in window)) {
+      status.textContent = 'Este navegador no admite notificaciones de escritorio.';
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      try { new Notification(title, { body, tag:'reloj-horario', renotify:true }); }
+      catch(e) { status.textContent = 'Chrome no pudo mostrar el aviso. Revisa los permisos del sitio.'; }
+    } else {
+      status.textContent = 'Las notificaciones no están autorizadas. Pulsa “Activar notificaciones”.';
+    }
+  }
+  function hourlyAlert(hour) {
+    if (soundToggle.checked) playTone();
+    if (notifyToggle.checked) {
+      const h = `${hour}:00`;
+      notify(`Son las ${h}`, messageInput.value.trim() || 'Ha pasado una hora.');
+    }
+  }
+  document.getElementById('testSound').addEventListener('click', () => {
+    playTone();
+    status.textContent = 'Sonido de prueba enviado.';
+  });
+  document.getElementById('enableBtn').addEventListener('click', async () => {
+    if (!('Notification' in window)) {
+      status.textContent = 'Este navegador no admite notificaciones de escritorio.';
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        status.innerHTML = '<strong>Notificaciones activadas.</strong> Los avisos horarios están habilitados.';
+        notify('Reloj horario activado', 'Recibirás un aviso cada hora en punto mientras la página esté abierta.');
+      } else {
+        status.textContent = 'No se concedió el permiso. Puedes cambiarlo desde la configuración del sitio en Chrome.';
+      }
+    } catch(e) {
+      status.textContent = 'No fue posible pedir permiso. Abre el archivo en Chrome y vuelve a intentarlo.';
+    }
+  });
+  document.getElementById('testNotify').addEventListener('click', () => {
+    if (Notification.permission === 'granted') {
+      notify('Aviso de prueba', messageInput.value.trim() || 'Las notificaciones están funcionando.');
+      status.textContent = 'Aviso de prueba enviado a Windows.';
+    } else {
+      status.textContent = 'Primero pulsa “Activar notificaciones” y concede permiso en Chrome.';
+    }
+  });
+  updateClock();
+  setInterval(updateClock, 250);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) updateClock();
+  });
+})();
+</script>
+</body>
+</html>
